@@ -76,3 +76,72 @@ impl CodecovClient {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::Config;
+
+    fn test_client(service: &str) -> CodecovClient {
+        let config = Config {
+            token: "tok".into(),
+            service: service.into(),
+            owner: "org".into(),
+            repo: "myrepo".into(),
+            base_url: "https://api.codecov.io".into(),
+            max_retries: 1,
+            poll_delay_ms: 0,
+        };
+        CodecovClient::new(&config).unwrap()
+    }
+
+    #[test]
+    fn test_service_slug_github() {
+        let c = test_client("github");
+        assert_eq!(c.app_pull_url(1), "https://app.codecov.io/gh/org/myrepo/pull/1");
+    }
+
+    #[test]
+    fn test_service_slug_bitbucket() {
+        let c = test_client("bitbucket");
+        assert_eq!(c.app_pull_url(5), "https://app.codecov.io/bb/org/myrepo/pull/5");
+    }
+
+    #[test]
+    fn test_service_slug_gitlab() {
+        let c = test_client("gitlab");
+        assert_eq!(c.app_pull_url(7), "https://app.codecov.io/gl/org/myrepo/pull/7");
+    }
+
+    #[test]
+    fn test_service_slug_custom() {
+        let c = test_client("custom-vcs");
+        assert_eq!(c.app_pull_url(2), "https://app.codecov.io/custom-vcs/org/myrepo/pull/2");
+    }
+
+    #[test]
+    fn test_app_commit_url() {
+        let c = test_client("github");
+        assert_eq!(
+            c.app_commit_url("abc123"),
+            "https://app.codecov.io/gh/org/myrepo/commit/abc123"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_handle_api_response_5xx_returns_api_error() {
+        let mut server = mockito::Server::new_async().await;
+        server
+            .mock("GET", "/test")
+            .with_status(500)
+            .with_body("internal server error")
+            .create_async()
+            .await;
+
+        let resp = reqwest::get(format!("{}/test", server.url()))
+            .await
+            .unwrap();
+        let err = handle_api_response(resp, "not found").await.unwrap_err();
+        assert!(matches!(err, AppError::Api { status: 500, .. }));
+    }
+}
