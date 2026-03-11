@@ -25,6 +25,7 @@ impl CodecovMcpServer {
     fn tools() -> Vec<Tool> {
         use crate::tools::changed_files::GetChangedFilesCoverageInput;
         use crate::tools::commit::GetCommitCoverageInput;
+        use crate::tools::suggest::SuggestTestTargetsInput;
 
         fn make_schema<T: schemars::JsonSchema>() -> serde_json::Map<String, serde_json::Value> {
             let value = serde_json::to_value(schema_for!(T)).unwrap_or_default();
@@ -48,6 +49,14 @@ impl CodecovMcpServer {
                  Returns base/head/patch coverage totals and per-file patch \
                  coverage breakdown for all changed files.",
                 Arc::new(make_schema::<GetChangedFilesCoverageInput>()),
+            ),
+            Tool::new(
+                "suggest_test_targets",
+                "Rank changed files in a pull request by how urgently they need tests. \
+                 Uses a weighted scoring formula based on patch miss rate, uncovered lines, \
+                 whether the file is new, and overall coverage. Supports filtering by file \
+                 extension and minimum uncovered lines.",
+                Arc::new(make_schema::<SuggestTestTargetsInput>()),
             ),
         ]
     }
@@ -113,6 +122,26 @@ impl ServerHandler for CodecovMcpServer {
 
                 let result =
                     crate::tools::changed_files::get_changed_files_coverage(&self.client, input)
+                        .await
+                        .map_err(|e| rmcp::Error::from(rmcp::model::ErrorData::from(e)))?;
+
+                let text =
+                    serde_json::to_string_pretty(&result).map_err(AppError::Serialization)?;
+
+                Ok(CallToolResult {
+                    content: vec![Content::text(text)],
+                    is_error: Some(false),
+                })
+            }
+            "suggest_test_targets" => {
+                let input: crate::tools::suggest::SuggestTestTargetsInput =
+                    serde_json::from_value(serde_json::Value::Object(
+                        request.arguments.unwrap_or_default(),
+                    ))
+                    .map_err(AppError::Serialization)?;
+
+                let result =
+                    crate::tools::suggest::suggest_test_targets(&self.client, input)
                         .await
                         .map_err(|e| rmcp::Error::from(rmcp::model::ErrorData::from(e)))?;
 
