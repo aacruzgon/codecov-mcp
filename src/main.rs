@@ -30,7 +30,8 @@ async fn main() -> anyhow::Result<()> {
     let client = CodecovClient::new(&config)?;
     let server = CodecovMcpServer::new(Arc::new(client));
     let transport = rmcp::transport::stdio();
-    rmcp::serve_server(server, transport).await?;
+    let running = rmcp::serve_server(server, transport).await?;
+    running.waiting().await?;
 
     Ok(())
 }
