@@ -54,8 +54,6 @@ mod tests {
     #[test]
     fn test_missing_token_fails() {
         std::env::remove_var("CODECOV_TOKEN");
-        std::env::remove_var("CODECOV_OWNER");
-        std::env::remove_var("CODECOV_REPO");
         let result = Config::from_env();
         assert!(result.is_err());
     }
