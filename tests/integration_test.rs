@@ -4,6 +4,7 @@ use codecov_mcp::{
     codecov_client::CodecovClient,
     config::Config,
     error::AppError,
+    resources::pr_summary,
     tools::{
         changed_files::{get_changed_files_coverage, GetChangedFilesCoverageInput},
         commit::{get_commit_coverage, GetCommitCoverageInput},
@@ -550,5 +551,118 @@ async fn test_integration_suggest_test_targets_rate_limited() {
     assert!(
         matches!(result, Err(AppError::RateLimited)),
         "expected RateLimited, got {result:?}"
+    );
+}
+
+// ── get_changed_files_coverage (include_patch_coverage=false) ─────────────────
+
+#[tokio::test]
+async fn test_integration_get_changed_files_coverage_exclude_patch() {
+    let mut server = mockito::Server::new_async().await;
+    let pull_id = 42u64;
+
+    let _mock_summary = server
+        .mock("GET", "/api/v2/github/test-owner/repos/test-repo/compare/")
+        .match_query(mockito::Matcher::UrlEncoded(
+            "pullid".into(),
+            pull_id.to_string(),
+        ))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(include_str!("fixtures/comparison_summary.json"))
+        .create_async()
+        .await;
+
+    let _mock_files = server
+        .mock(
+            "GET",
+            "/api/v2/github/test-owner/repos/test-repo/compare/impacted_files",
+        )
+        .match_query(mockito::Matcher::UrlEncoded(
+            "pullid".into(),
+            pull_id.to_string(),
+        ))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(include_str!("fixtures/impacted_files_processed.json"))
+        .create_async()
+        .await;
+
+    let client = make_client(&server.url());
+    let result = get_changed_files_coverage(
+        &client,
+        GetChangedFilesCoverageInput {
+            pull_id,
+            include_patch_coverage: Some(false),
+        },
+    )
+    .await;
+
+    assert!(result.is_ok(), "expected Ok, got {result:?}");
+    let out = result.unwrap();
+    // With include_patch_coverage=false, patch_coverage_pct on every file should be None
+    for file in &out.files {
+        assert!(
+            file.patch_coverage_pct.is_none(),
+            "expected patch_coverage_pct=None when include=false, got {:?}",
+            file.patch_coverage_pct
+        );
+    }
+    // added_lines / covered / uncovered are still present (come from patch totals regardless)
+}
+
+// ── pr_summary::fetch ─────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_integration_pr_summary_fetch_success() {
+    let mut server = mockito::Server::new_async().await;
+    let pull_id = 42u64;
+
+    let _mock = server
+        .mock("GET", "/api/v2/github/test-owner/repos/test-repo/compare/")
+        .match_query(mockito::Matcher::UrlEncoded(
+            "pullid".into(),
+            pull_id.to_string(),
+        ))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(include_str!("fixtures/comparison_summary.json"))
+        .create_async()
+        .await;
+
+    let client = make_client(&server.url());
+    let result = pr_summary::fetch(&client, pull_id).await;
+    assert!(result.is_ok(), "expected Ok, got {result:?}");
+
+    let json_str = result.unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&json_str).expect("valid JSON");
+    assert_eq!(parsed["pull_id"], pull_id);
+    assert_eq!(parsed["owner"], "test-owner");
+    assert_eq!(parsed["repo"], "test-repo");
+    assert_eq!(parsed["base_coverage_pct"], 72.5);
+    assert_eq!(parsed["head_coverage_pct"], 74.0);
+    assert_eq!(parsed["patch_coverage_pct"], 60.0);
+}
+
+#[tokio::test]
+async fn test_integration_pr_summary_fetch_not_found() {
+    let mut server = mockito::Server::new_async().await;
+    let pull_id = 9999u64;
+
+    let _mock = server
+        .mock("GET", "/api/v2/github/test-owner/repos/test-repo/compare/")
+        .match_query(mockito::Matcher::UrlEncoded(
+            "pullid".into(),
+            pull_id.to_string(),
+        ))
+        .with_status(404)
+        .create_async()
+        .await;
+
+    let client = make_client(&server.url());
+    let result = pr_summary::fetch(&client, pull_id).await;
+    assert!(
+        matches!(result, Err(AppError::NotFound(_))),
+        "expected NotFound, got {result:?}"
     );
 }
