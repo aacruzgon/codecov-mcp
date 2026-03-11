@@ -1,0 +1,15 @@
+{
+  "commitid": "abc123def456abc123def456abc123def456abc1",
+  "branch": "main",
+  "message": "feat: add feature X",
+  "timestamp": "2024-01-15T12:00:00Z",
+  "state": "complete",
+  "totals": {
+    "coverage": 75.0,
+    "lines": 100,
+    "hits": 75,
+    "misses": 20,
+    "partials": 5,
+    "branches": 0
+  }
+}
