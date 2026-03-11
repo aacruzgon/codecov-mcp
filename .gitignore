@@ -1,0 +1,23 @@
+# Rust
+/target/
+Cargo.lock
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Logs & debug
+*.log
