@@ -23,20 +23,33 @@ impl CodecovMcpServer {
     }
 
     fn tools() -> Vec<Tool> {
+        use crate::tools::changed_files::GetChangedFilesCoverageInput;
         use crate::tools::commit::GetCommitCoverageInput;
-        let schema = schema_for!(GetCommitCoverageInput);
-        let schema_value = serde_json::to_value(&schema).unwrap_or_default();
-        let schema_obj = match schema_value {
-            serde_json::Value::Object(map) => map,
-            _ => serde_json::Map::new(),
-        };
-        vec![Tool::new(
-            "get_commit_coverage",
-            "Get coverage data for a specific commit SHA from Codecov. \
-             Returns overall coverage percentage, line counts, and optionally \
-             per-file breakdown.",
-            Arc::new(schema_obj),
-        )]
+
+        fn make_schema<T: schemars::JsonSchema>() -> serde_json::Map<String, serde_json::Value> {
+            let value = serde_json::to_value(schema_for!(T)).unwrap_or_default();
+            match value {
+                serde_json::Value::Object(map) => map,
+                _ => serde_json::Map::new(),
+            }
+        }
+
+        vec![
+            Tool::new(
+                "get_commit_coverage",
+                "Get coverage data for a specific commit SHA from Codecov. \
+                 Returns overall coverage percentage, line counts, and optionally \
+                 per-file breakdown.",
+                Arc::new(make_schema::<GetCommitCoverageInput>()),
+            ),
+            Tool::new(
+                "get_changed_files_coverage",
+                "Get patch coverage for a pull request from Codecov. \
+                 Returns base/head/patch coverage totals and per-file patch \
+                 coverage breakdown for all changed files.",
+                Arc::new(make_schema::<GetChangedFilesCoverageInput>()),
+            ),
+        ]
     }
 }
 
@@ -82,6 +95,26 @@ impl ServerHandler for CodecovMcpServer {
                 let result = crate::tools::commit::get_commit_coverage(&self.client, input)
                     .await
                     .map_err(|e| rmcp::Error::from(rmcp::model::ErrorData::from(e)))?;
+
+                let text =
+                    serde_json::to_string_pretty(&result).map_err(AppError::Serialization)?;
+
+                Ok(CallToolResult {
+                    content: vec![Content::text(text)],
+                    is_error: Some(false),
+                })
+            }
+            "get_changed_files_coverage" => {
+                let input: crate::tools::changed_files::GetChangedFilesCoverageInput =
+                    serde_json::from_value(serde_json::Value::Object(
+                        request.arguments.unwrap_or_default(),
+                    ))
+                    .map_err(AppError::Serialization)?;
+
+                let result =
+                    crate::tools::changed_files::get_changed_files_coverage(&self.client, input)
+                        .await
+                        .map_err(|e| rmcp::Error::from(rmcp::model::ErrorData::from(e)))?;
 
                 let text =
                     serde_json::to_string_pretty(&result).map_err(AppError::Serialization)?;
