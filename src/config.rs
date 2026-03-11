@@ -7,9 +7,7 @@ pub struct Config {
     pub owner: String,
     pub repo: String,
     pub base_url: String,
-    #[allow(dead_code)]
     pub max_retries: u32,
-    #[allow(dead_code)]
     pub poll_delay_ms: u64,
 }
 

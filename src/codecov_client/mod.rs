@@ -38,6 +38,8 @@ pub struct CodecovClient {
     pub(crate) service: String,
     pub(crate) owner: String,
     pub(crate) repo: String,
+    pub(crate) max_retries: u32,
+    pub(crate) poll_delay_ms: u64,
 }
 
 impl CodecovClient {
@@ -48,20 +50,29 @@ impl CodecovClient {
             service: config.service.clone(),
             owner: config.owner.clone(),
             repo: config.repo.clone(),
+            max_retries: config.max_retries,
+            poll_delay_ms: config.poll_delay_ms,
         })
+    }
+
+    /// `https://app.codecov.io/{slug}/{owner}/{repo}/pull/{pull_id}`
+    pub fn app_pull_url(&self, pull_id: u64) -> String {
+        let slug = self.service_slug();
+        format!("https://app.codecov.io/{}/{}/{}/pull/{}", slug, self.owner, self.repo, pull_id)
     }
 
     /// `https://app.codecov.io/{slug}/{owner}/{repo}/commit/{sha}`
     pub fn app_commit_url(&self, sha: &str) -> String {
-        let slug = match self.service.as_str() {
+        let slug = self.service_slug();
+        format!("https://app.codecov.io/{}/{}/{}/commit/{}", slug, self.owner, self.repo, sha)
+    }
+
+    fn service_slug(&self) -> &str {
+        match self.service.as_str() {
             "github" => "gh",
             "bitbucket" => "bb",
             "gitlab" => "gl",
             other => other,
-        };
-        format!(
-            "https://app.codecov.io/{}/{}/{}/commit/{}",
-            slug, self.owner, self.repo, sha
-        )
+        }
     }
 }
