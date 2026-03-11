@@ -11,7 +11,7 @@ pub struct GetCommitCoverageInput {
     pub include_files: Option<bool>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct CommitCoverageOutput {
     pub commit_sha: String,
     pub branch: Option<String>,
@@ -27,7 +27,7 @@ pub struct CommitCoverageOutput {
     pub codecov_url: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct FileOutput {
     pub name: String,
     pub coverage_pct: Option<f64>,

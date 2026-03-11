@@ -1,18 +1,8 @@
-mod auth;
-mod codecov_client;
-mod config;
-mod error;
-mod heuristics;
-mod models;
-mod resources;
-mod server;
-mod tools;
-
 use std::sync::Arc;
 
-use codecov_client::CodecovClient;
-use config::Config;
-use server::CodecovMcpServer;
+use codecov_mcp::{
+    codecov_client::CodecovClient, config::Config, server::CodecovMcpServer,
+};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

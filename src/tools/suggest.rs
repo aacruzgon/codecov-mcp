@@ -24,7 +24,7 @@ pub struct SuggestTestTargetsInput {
     pub file_extensions: Option<Vec<String>>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct SuggestTestTargetsOutput {
     pub pull_id: u64,
     pub ranked_files: Vec<RankedFileOutput>,
@@ -35,7 +35,7 @@ pub struct SuggestTestTargetsOutput {
     pub files_excluded: usize,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct RankedFileOutput {
     pub rank: usize,
     pub file_path: String,

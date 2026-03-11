@@ -12,7 +12,7 @@ pub struct GetChangedFilesCoverageInput {
     pub include_patch_coverage: Option<bool>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct ChangedFilesCoverageOutput {
     pub pull_id: u64,
     pub base_commit: Option<String>,
@@ -22,7 +22,7 @@ pub struct ChangedFilesCoverageOutput {
     pub codecov_url: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct PatchTotalsOutput {
     pub base_coverage_pct: Option<f64>,
     pub head_coverage_pct: Option<f64>,
@@ -32,7 +32,7 @@ pub struct PatchTotalsOutput {
     pub patch_misses: Option<i64>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct FilePatchOutput {
     pub name: String,
     /// `None` for newly created files.
