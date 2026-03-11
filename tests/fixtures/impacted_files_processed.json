@@ -1,0 +1,54 @@
+{
+  "state": "processed",
+  "files": [
+    {
+      "head_name": "src/main.rs",
+      "base_name": "src/main.rs",
+      "base_coverage": {
+        "coverage": 80.0,
+        "lines": 50,
+        "hits": 40,
+        "misses": 10,
+        "partials": 0,
+        "branches": 0
+      },
+      "head_coverage": {
+        "coverage": 83.33,
+        "lines": 60,
+        "hits": 50,
+        "misses": 10,
+        "partials": 0,
+        "branches": 0
+      },
+      "patch_totals": {
+        "coverage": "60.00",
+        "lines": 10,
+        "hits": 6,
+        "misses": 4,
+        "partials": 0,
+        "branches": 0
+      }
+    },
+    {
+      "head_name": "src/new_module.rs",
+      "base_name": null,
+      "base_coverage": null,
+      "head_coverage": {
+        "coverage": 50.0,
+        "lines": 20,
+        "hits": 10,
+        "misses": 10,
+        "partials": 0,
+        "branches": 0
+      },
+      "patch_totals": {
+        "coverage": 50.0,
+        "lines": 20,
+        "hits": 10,
+        "misses": 10,
+        "partials": 0,
+        "branches": 0
+      }
+    }
+  ]
+}

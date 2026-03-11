@@ -1,0 +1,28 @@
+{
+  "base_commit": "aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee",
+  "head_commit": "1111111122222222333333334444444455555555",
+  "base": {
+    "coverage": "72.50",
+    "lines": 200,
+    "hits": 145,
+    "misses": 50,
+    "partials": 5,
+    "branches": 0
+  },
+  "head": {
+    "coverage": 74.0,
+    "lines": 210,
+    "hits": 155,
+    "misses": 50,
+    "partials": 5,
+    "branches": 0
+  },
+  "patch": {
+    "coverage": 60.0,
+    "lines": 10,
+    "hits": 6,
+    "misses": 4,
+    "partials": 0,
+    "branches": 0
+  }
+}
