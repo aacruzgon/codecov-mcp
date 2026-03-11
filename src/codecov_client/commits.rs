@@ -1,6 +1,4 @@
-use reqwest::StatusCode;
-
-use super::CodecovClient;
+use super::{handle_api_response, CodecovClient};
 use crate::{
     error::AppError,
     models::commit::{CommitDetail, CommitReport},
@@ -21,21 +19,8 @@ impl CodecovClient {
             .send()
             .await
             .map_err(AppError::Http)?;
-
-        match response.status() {
-            StatusCode::OK => response.json::<CommitDetail>().await.map_err(AppError::Http),
-            StatusCode::NOT_FOUND => Err(AppError::NotFound(format!("commit {sha} not found"))),
-            status => {
-                let message = response
-                    .text()
-                    .await
-                    .unwrap_or_else(|_| "unknown error".into());
-                Err(AppError::Api {
-                    status: status.as_u16(),
-                    message,
-                })
-            }
-        }
+        let response = handle_api_response(response, format!("commit {sha} not found")).await?;
+        response.json::<CommitDetail>().await.map_err(AppError::Http)
     }
 
     /// `GET /api/v2/{service}/{owner}/repos/{repo}/report/?sha={sha}`
@@ -54,22 +39,8 @@ impl CodecovClient {
             .await
             .map_err(AppError::Http)?;
 
-        match response.status() {
-            StatusCode::OK => response.json::<CommitReport>().await.map_err(AppError::Http),
-            StatusCode::NOT_FOUND => {
-                Err(AppError::NotFound(format!("report for commit {sha} not found")))
-            }
-            status => {
-                let message = response
-                    .text()
-                    .await
-                    .unwrap_or_else(|_| "unknown error".into());
-                Err(AppError::Api {
-                    status: status.as_u16(),
-                    message,
-                })
-            }
-        }
+        let response = handle_api_response(response, format!("report for commit {sha} not found")).await?;
+        response.json::<CommitReport>().await.map_err(AppError::Http)
     }
 }
 
@@ -192,6 +163,75 @@ mod tests {
         assert!(
             matches!(result, Err(AppError::Api { status: 500, .. })),
             "expected Api(500), got {result:?}"
+        );
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn test_get_commit_detail_unauthorized() {
+        let mut server = mockito::Server::new_async().await;
+        let sha = "abc123def456abc123def456abc123def456abc1";
+        let mock = server
+            .mock(
+                "GET",
+                format!("/api/v2/github/test-owner/repos/test-repo/commits/{sha}").as_str(),
+            )
+            .with_status(401)
+            .create_async()
+            .await;
+
+        let client = make_client(&server.url());
+        let result = client.get_commit_detail(sha).await;
+
+        assert!(
+            matches!(result, Err(AppError::Unauthorized)),
+            "expected Unauthorized, got {result:?}"
+        );
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn test_get_commit_detail_forbidden() {
+        let mut server = mockito::Server::new_async().await;
+        let sha = "abc123def456abc123def456abc123def456abc1";
+        let mock = server
+            .mock(
+                "GET",
+                format!("/api/v2/github/test-owner/repos/test-repo/commits/{sha}").as_str(),
+            )
+            .with_status(403)
+            .create_async()
+            .await;
+
+        let client = make_client(&server.url());
+        let result = client.get_commit_detail(sha).await;
+
+        assert!(
+            matches!(result, Err(AppError::Forbidden)),
+            "expected Forbidden, got {result:?}"
+        );
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn test_get_commit_detail_rate_limited() {
+        let mut server = mockito::Server::new_async().await;
+        let sha = "abc123def456abc123def456abc123def456abc1";
+        let mock = server
+            .mock(
+                "GET",
+                format!("/api/v2/github/test-owner/repos/test-repo/commits/{sha}").as_str(),
+            )
+            .with_status(429)
+            .create_async()
+            .await;
+
+        let client = make_client(&server.url());
+        let result = client.get_commit_detail(sha).await;
+
+        assert!(
+            matches!(result, Err(AppError::RateLimited)),
+            "expected RateLimited, got {result:?}"
         );
         mock.assert_async().await;
     }
