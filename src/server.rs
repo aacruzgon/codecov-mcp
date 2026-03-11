@@ -10,18 +10,16 @@ use rmcp::{
 };
 use schemars::schema_for;
 
-use crate::config::Config;
-use crate::error::AppError;
+use crate::{codecov_client::CodecovClient, error::AppError};
 
 #[derive(Clone)]
 pub struct CodecovMcpServer {
-    #[allow(dead_code)]
-    config: Arc<Config>,
+    client: Arc<CodecovClient>,
 }
 
 impl CodecovMcpServer {
-    pub fn new(config: Arc<Config>) -> Self {
-        Self { config }
+    pub fn new(client: Arc<CodecovClient>) -> Self {
+        Self { client }
     }
 
     fn tools() -> Vec<Tool> {
@@ -34,7 +32,9 @@ impl CodecovMcpServer {
         };
         vec![Tool::new(
             "get_commit_coverage",
-            "Get coverage data for a specific commit SHA from Codecov.",
+            "Get coverage data for a specific commit SHA from Codecov. \
+             Returns overall coverage percentage, line counts, and optionally \
+             per-file breakdown.",
             Arc::new(schema_obj),
         )]
     }
@@ -77,14 +77,14 @@ impl ServerHandler for CodecovMcpServer {
                     serde_json::from_value(serde_json::Value::Object(
                         request.arguments.unwrap_or_default(),
                     ))
-                    .map_err(|e| AppError::Serialization(e))?;
+                    .map_err(AppError::Serialization)?;
 
-                let result = crate::tools::commit::get_commit_coverage(input)
+                let result = crate::tools::commit::get_commit_coverage(&self.client, input)
                     .await
                     .map_err(|e| rmcp::Error::from(rmcp::model::ErrorData::from(e)))?;
 
-                let text = serde_json::to_string_pretty(&result)
-                    .map_err(|e| AppError::Serialization(e))?;
+                let text =
+                    serde_json::to_string_pretty(&result).map_err(AppError::Serialization)?;
 
                 Ok(CallToolResult {
                     content: vec![Content::text(text)],
