@@ -43,6 +43,51 @@ pub struct CommitReport {
     pub files: Option<Vec<ReportFile>>,
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse_totals(json: &str) -> Totals {
+        serde_json::from_str(json).expect("failed to parse Totals")
+    }
+
+    #[test]
+    fn test_coverage_as_float() {
+        let t = parse_totals(r#"{"coverage": 75.5}"#);
+        assert_eq!(t.coverage, Some(75.5));
+    }
+
+    #[test]
+    fn test_coverage_as_string() {
+        let t = parse_totals(r#"{"coverage": "82.33"}"#);
+        assert!((t.coverage.unwrap() - 82.33).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_coverage_null_is_none() {
+        let t = parse_totals(r#"{"coverage": null}"#);
+        assert_eq!(t.coverage, None);
+    }
+
+    #[test]
+    fn test_coverage_missing_is_none() {
+        let t = parse_totals(r#"{}"#);
+        assert_eq!(t.coverage, None);
+    }
+
+    #[test]
+    fn test_coverage_non_parseable_string_is_none() {
+        let t = parse_totals(r#"{"coverage": "not-a-number"}"#);
+        assert_eq!(t.coverage, None);
+    }
+
+    #[test]
+    fn test_coverage_array_is_none() {
+        let t = parse_totals(r#"{"coverage": [1, 2, 3]}"#);
+        assert_eq!(t.coverage, None);
+    }
+}
+
 /// Accepts `coverage` as either a JSON number or a quoted string.
 fn deserialize_coverage<'de, D>(d: D) -> Result<Option<f64>, D::Error>
 where
