@@ -14,6 +14,15 @@ pub enum AppError {
     #[error("No coverage data: {0}")]
     NoCoverageData(String),
 
+    #[error("Unauthorized: invalid or missing Codecov token")]
+    Unauthorized,
+
+    #[error("Forbidden: token does not have access to this repository")]
+    Forbidden,
+
+    #[error("Rate limited by Codecov API — please retry later")]
+    RateLimited,
+
     #[error("Codecov API error ({status}): {message}")]
     Api { status: u16, message: String },
 
@@ -43,6 +52,21 @@ impl From<AppError> for ErrorData {
                 data: None,
             },
             AppError::NoCoverageData(_) => ErrorData {
+                code: ErrorCode::INTERNAL_ERROR,
+                message: err.to_string().into(),
+                data: None,
+            },
+            AppError::Unauthorized => ErrorData {
+                code: ErrorCode::INVALID_PARAMS,
+                message: err.to_string().into(),
+                data: None,
+            },
+            AppError::Forbidden => ErrorData {
+                code: ErrorCode::INVALID_PARAMS,
+                message: err.to_string().into(),
+                data: None,
+            },
+            AppError::RateLimited => ErrorData {
                 code: ErrorCode::INTERNAL_ERROR,
                 message: err.to_string().into(),
                 data: None,
