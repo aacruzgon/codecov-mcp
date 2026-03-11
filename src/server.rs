@@ -3,8 +3,10 @@ use std::sync::Arc;
 use rmcp::{
     ServerHandler,
     model::{
-        CallToolRequestParam, CallToolResult, Content, Implementation, ListToolsResult,
-        PaginatedRequestParam, ServerCapabilities, ServerInfo, Tool,
+        CallToolRequestParam, CallToolResult, Content, Implementation, ListResourceTemplatesResult,
+        AnnotateAble, ListResourcesResult, ListToolsResult, PaginatedRequestParam,
+        RawResourceTemplate, ReadResourceRequestParam, ReadResourceResult, ResourceContents,
+        ServerCapabilities, ServerInfo, Tool,
     },
     schemars,
 };
@@ -68,13 +70,80 @@ impl ServerHandler for CodecovMcpServer {
             instructions: Some(
                 "Codecov MCP server. Query coverage data for commits and pull requests.".into(),
             ),
-            capabilities: ServerCapabilities::builder().enable_tools().build(),
+            capabilities: ServerCapabilities::builder()
+                .enable_tools()
+                .enable_resources()
+                .build(),
             server_info: Implementation {
                 name: env!("CARGO_PKG_NAME").to_owned(),
                 version: env!("CARGO_PKG_VERSION").to_owned(),
             },
             ..Default::default()
         }
+    }
+
+    async fn list_resources(
+        &self,
+        _request: PaginatedRequestParam,
+        _context: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> Result<ListResourcesResult, rmcp::Error> {
+        Ok(ListResourcesResult {
+            resources: vec![],
+            next_cursor: None,
+        })
+    }
+
+    async fn list_resource_templates(
+        &self,
+        _request: PaginatedRequestParam,
+        _context: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> Result<ListResourceTemplatesResult, rmcp::Error> {
+        let template = RawResourceTemplate {
+            uri_template: crate::resources::pr_summary::URI_TEMPLATE.to_string(),
+            name: "PR Coverage Summary".to_string(),
+            description: Some(
+                "Coverage totals and repo metadata for a pull request. \
+                 URI: codecov://pr/{pull_id}/summary"
+                    .to_string(),
+            ),
+            mime_type: Some("application/json".to_string()),
+        }
+        .no_annotation();
+
+        Ok(ListResourceTemplatesResult {
+            resource_templates: vec![template],
+            next_cursor: None,
+        })
+    }
+
+    async fn read_resource(
+        &self,
+        request: ReadResourceRequestParam,
+        _context: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> Result<ReadResourceResult, rmcp::Error> {
+        use crate::resources::pr_summary;
+
+        let pull_id = pr_summary::parse_uri(&request.uri).ok_or_else(|| {
+            rmcp::Error::invalid_params(
+                format!(
+                    "invalid resource URI '{}'; expected codecov://pr/{{pull_id}}/summary",
+                    request.uri
+                ),
+                None,
+            )
+        })?;
+
+        let text = pr_summary::fetch(&self.client, pull_id)
+            .await
+            .map_err(|e| rmcp::Error::from(rmcp::model::ErrorData::from(e)))?;
+
+        Ok(ReadResourceResult {
+            contents: vec![ResourceContents::TextResourceContents {
+                uri: request.uri,
+                mime_type: Some("application/json".to_string()),
+                text,
+            }],
+        })
     }
 
     async fn list_tools(
